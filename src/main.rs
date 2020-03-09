@@ -10,12 +10,16 @@ use std::ptr;
 use std::mem;
 use std::os::raw::c_void;
 use std::path::Path;
+use std::ffi::{CString, CStr};
 
 mod shader;
 use shader::Shader;
 
 extern crate image;
 use image::GenericImage;
+
+use cgmath::{Matrix4, vec3, Rad};
+use cgmath::prelude::*;
 
 // settings
 const SCR_WIDTH: u32 = 800;
@@ -117,7 +121,7 @@ pub fn main() {
                        gl::RGB,
                        gl::UNSIGNED_BYTE,
                        &data[0] as *const u8 as *const c_void);
-        //gl::GenerateMipmap(gl::TEXTURE_2D);
+        gl::GenerateMipmap(gl::TEXTURE_2D);
 
         (ourShader, VBO, VAO, EBO, texture)
     };
@@ -138,8 +142,16 @@ pub fn main() {
             // bind texture
             gl::BindTexture(gl::TEXTURE_2D, texture);
 
-            // render the triangle
+            // create transformations
+            let mut transform = Matrix4::identity();
+            transform = transform * Matrix4::<f32>::from_translation(vec3(0.0, 0.0, 0.0));
+            transform = transform * Matrix4::<f32>::from_angle_z(Rad(glfw.get_time() as f32));            
+
+            // get matrix's uniform location and set matrix
             ourShader.useProgram();
+            let transformLoc = gl::GetUniformLocation(ourShader.ID, CString::new("transform").unwrap().as_ptr());
+            gl::UniformMatrix4fv(transformLoc, 1, gl::FALSE, transform.as_ptr());
+
             gl::BindVertexArray(VAO);
             gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null());
         }
