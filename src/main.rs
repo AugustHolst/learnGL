@@ -18,13 +18,20 @@ use shader::Shader;
 extern crate image;
 use image::GenericImage;
 
-use cgmath::{Matrix4, vec3, Rad};
+use cgmath::{Matrix4, vec3, Deg, Rad, perspective};
 use cgmath::prelude::*;
 
 // settings
 const SCR_WIDTH: u32 = 800;
 const SCR_HEIGHT: u32 = 600;
 
+/// Macro to get c strings from literals without runtime overhead
+/// Literal must not contain any interior nul bytes!
+macro_rules! c_str {
+    ($literal:expr) => {
+        CStr::from_bytes_with_nul_unchecked(concat!($literal, "\0").as_bytes())
+    }
+}
 #[allow(non_snake_case)]
 pub fn main() {
     // glfw: initialize and configure
@@ -32,7 +39,6 @@ pub fn main() {
     let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
     glfw.window_hint(glfw::WindowHint::ContextVersion(3, 3));
     glfw.window_hint(glfw::WindowHint::OpenGlProfile(glfw::OpenGlProfileHint::Core));
-    //#[cfg(target_os = "macos")]
     glfw.window_hint(glfw::WindowHint::OpenGlForwardCompat(true));
 
     // glfw window creation
@@ -48,31 +54,65 @@ pub fn main() {
     // ---------------------------------------
     gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
 
-    let (ourShader, VBO, VAO, EBO, texture) = unsafe {
+    let (ourShader, VBO, VAO, texture) = unsafe {
+        
+        gl::Enable(gl::DEPTH_TEST);
+        
         let ourShader = Shader::new(
             "src/shaders/shader.vert",
             "src/shaders/shader.frag"
-        ); // you can name your shader files however you like)
+        );
 
         // set up vertex data (and buffer(s)) and configure vertex attributes
         // ------------------------------------------------------------------
         // HINT: type annotation is crucial since default for float literals is f64
-        let vertices: [f32; 32] = [
-            // positions         // colors
-             0.75,  0.75, 0.0,    1.0, 0.0, 0.0,  1.0, 1.0,  // top right
-             0.75, -0.75, 0.0,    1.0, 0.0, 0.0,  1.0, 0.0,  // bottom right
-            -0.75, -0.75, 0.0,    0.0, 0.0, 1.0,  0.0, 0.0,  // bottom left
-            -0.75,  0.75, 0.0,    0.0, 0.0, 1.0,  0.0, 1.0   // top left
+        let vertices: [f32; 180] = [
+           -0.5, -0.5, -0.5,  0.0, 0.0,
+            0.5, -0.5, -0.5,  1.0, 0.0,
+            0.5,  0.5, -0.5,  1.0, 1.0,
+            0.5,  0.5, -0.5,  1.0, 1.0,
+           -0.5,  0.5, -0.5,  0.0, 1.0,
+           -0.5, -0.5, -0.5,  0.0, 0.0,
+       
+           -0.5, -0.5,  0.5,  0.0, 0.0,
+            0.5, -0.5,  0.5,  1.0, 0.0,
+            0.5,  0.5,  0.5,  1.0, 1.0,
+            0.5,  0.5,  0.5,  1.0, 1.0,
+           -0.5,  0.5,  0.5,  0.0, 1.0,
+           -0.5, -0.5,  0.5,  0.0, 0.0,
+       
+           -0.5,  0.5,  0.5,  1.0, 0.0,
+           -0.5,  0.5, -0.5,  1.0, 1.0,
+           -0.5, -0.5, -0.5,  0.0, 1.0,
+           -0.5, -0.5, -0.5,  0.0, 1.0,
+           -0.5, -0.5,  0.5,  0.0, 0.0,
+           -0.5,  0.5,  0.5,  1.0, 0.0,
+       
+            0.5,  0.5,  0.5,  1.0, 0.0,
+            0.5,  0.5, -0.5,  1.0, 1.0,
+            0.5, -0.5, -0.5,  0.0, 1.0,
+            0.5, -0.5, -0.5,  0.0, 1.0,
+            0.5, -0.5,  0.5,  0.0, 0.0,
+            0.5,  0.5,  0.5,  1.0, 0.0,
+       
+           -0.5, -0.5, -0.5,  0.0, 1.0,
+            0.5, -0.5, -0.5,  1.0, 1.0,
+            0.5, -0.5,  0.5,  1.0, 0.0,
+            0.5, -0.5,  0.5,  1.0, 0.0,
+           -0.5, -0.5,  0.5,  0.0, 0.0,
+           -0.5, -0.5, -0.5,  0.0, 1.0,
+       
+           -0.5,  0.5, -0.5,  0.0, 1.0,
+            0.5,  0.5, -0.5,  1.0, 1.0,
+            0.5,  0.5,  0.5,  1.0, 0.0,
+            0.5,  0.5,  0.5,  1.0, 0.0,
+           -0.5,  0.5,  0.5,  0.0, 0.0,
+           -0.5,  0.5, -0.5,  0.0, 1.0
         ];
-        let indices = [
-            0, 1, 3,
-            1, 2, 3
-        ];
-        let (mut VBO, mut VAO, mut EBO) = (0, 0, 0);
+        let (mut VBO, mut VAO) = (0, 0);
         gl::GenVertexArrays(1, &mut VAO);
         gl::GenBuffers(1, &mut VBO);
-        gl::GenBuffers(1, &mut EBO);
-        // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
+        
         gl::BindVertexArray(VAO);
 
         gl::BindBuffer(gl::ARRAY_BUFFER, VBO);
@@ -80,23 +120,14 @@ pub fn main() {
                        (vertices.len() * mem::size_of::<GLfloat>()) as GLsizeiptr,
                        &vertices[0] as *const f32 as *const c_void,
                        gl::STATIC_DRAW);
-
-        gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, EBO);
-        gl::BufferData(gl::ELEMENT_ARRAY_BUFFER,
-                       (indices.len() * mem::size_of::<GLfloat>()) as GLsizeiptr,
-                       &indices[0] as *const i32 as *const c_void,
-                       gl::STATIC_DRAW);
         
-        let stride = 8 * mem::size_of::<GLfloat>() as GLsizei;
+        let stride = 5 * mem::size_of::<GLfloat>() as GLsizei;
         // position attribute
         gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, stride, ptr::null());
         gl::EnableVertexAttribArray(0);
         // color attribute
-        gl::VertexAttribPointer(1, 3, gl::FLOAT, gl::FALSE, stride, (3 * mem::size_of::<GLfloat>()) as *const c_void);
+        gl::VertexAttribPointer(1, 2, gl::FLOAT, gl::FALSE, stride, (3 * mem::size_of::<GLfloat>()) as *const c_void);
         gl::EnableVertexAttribArray(1);
-        // teture attribute
-        gl::VertexAttribPointer(2, 2, gl::FLOAT, gl::FALSE, stride, (6 * mem::size_of::<GLfloat>()) as *const c_void);
-        gl::EnableVertexAttribArray(2);
         // load and create a texture
         // -------------------------
         let mut texture = 0;
@@ -123,9 +154,12 @@ pub fn main() {
                        &data[0] as *const u8 as *const c_void);
         gl::GenerateMipmap(gl::TEXTURE_2D);
 
-        (ourShader, VBO, VAO, EBO, texture)
-    };
+        ourShader.useProgram();
+        ourShader.setInt(c_str!("texture1"), 0);
 
+        (ourShader, VBO, VAO, texture)
+    };
+    
     // render loop
     // -----------
     while !window.should_close() {
@@ -137,23 +171,34 @@ pub fn main() {
         // ------
         unsafe {
             gl::ClearColor(0.2, 0.3, 0.3, 1.0);
-            gl::Clear(gl::COLOR_BUFFER_BIT);
+            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
 
             // bind texture
+            gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_2D, texture);
 
-            // create transformations
-            let mut transform = Matrix4::identity();
-            transform = transform * Matrix4::<f32>::from_translation(vec3(0.0, 0.0, 0.0));
-            transform = transform * Matrix4::<f32>::from_angle_z(Rad(glfw.get_time() as f32));            
-
-            // get matrix's uniform location and set matrix
+            // activate shader
             ourShader.useProgram();
-            let transformLoc = gl::GetUniformLocation(ourShader.ID, CString::new("transform").unwrap().as_ptr());
-            gl::UniformMatrix4fv(transformLoc, 1, gl::FALSE, transform.as_ptr());
+
+            // create transformation matrices
+            let model: Matrix4<f32> = Matrix4::from_axis_angle(vec3(0.5, 1.0, 0.0).normalize(), Rad(glfw.get_time() as f32));
+            let view: Matrix4<f32> = Matrix4::from_translation(vec3(0.0, 0.0, -3.0));
+            let projection: Matrix4<f32> = perspective(Deg(45.0), SCR_WIDTH as f32 / SCR_HEIGHT as f32, 0.1, 100.0);        
+            
+            // get matrices uniform location
+            let modelLoc = gl::GetUniformLocation(ourShader.ID, c_str!("model").as_ptr());
+            let viewLoc = gl::GetUniformLocation(ourShader.ID, c_str!("view").as_ptr());
+            //let projectionLoc = gl::GetUniformLocation(ourShader.ID, c_str!("projection").as_ptr());
+            
+            // set uniform matrices
+            gl::UniformMatrix4fv(modelLoc, 1, gl::FALSE, model.as_ptr());
+            gl::UniformMatrix4fv(viewLoc, 1, gl::FALSE, view.as_ptr());
+            //gl::UniformMatrix4fv(projectionLoc, 1, gl::FALSE, projection.as_ptr());
+            
+            ourShader.setMat4(c_str!("projection"), &projection);
 
             gl::BindVertexArray(VAO);
-            gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null());
+            gl::DrawArrays(gl::TRIANGLES, 0, 36);
         }
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
@@ -166,7 +211,6 @@ pub fn main() {
     unsafe {
         gl::DeleteVertexArrays(1, &VAO);
         gl::DeleteBuffers(1, &VBO);
-        gl::DeleteBuffers(1, &EBO);
     }
 }
 

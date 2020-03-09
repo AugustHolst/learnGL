@@ -70,6 +70,32 @@ impl Shader {
         gl::UseProgram(self.ID)
     }
 
+    /// utility uniform functions
+    /// ------------------------------------------------------------------------
+    pub unsafe fn setBool(&self, name: &CStr, value: bool) {
+        gl::Uniform1i(gl::GetUniformLocation(self.ID, name.as_ptr()), value as i32);
+    }
+    /// ------------------------------------------------------------------------
+    pub unsafe fn setInt(&self, name: &CStr, value: i32) {
+        gl::Uniform1i(gl::GetUniformLocation(self.ID, name.as_ptr()), value);
+    }
+    /// ------------------------------------------------------------------------
+    pub unsafe fn setFloat(&self, name: &CStr, value: f32) {
+        gl::Uniform1f(gl::GetUniformLocation(self.ID, name.as_ptr()), value);
+    }
+    /// ------------------------------------------------------------------------
+    pub unsafe fn setVector3(&self, name: &CStr, value: &Vector3<f32>) {
+        gl::Uniform3fv(gl::GetUniformLocation(self.ID, name.as_ptr()), 1, value.as_ptr());
+    }
+    /// ------------------------------------------------------------------------
+    pub unsafe fn setVec3(&self, name: &CStr, x: f32, y: f32, z: f32) {
+        gl::Uniform3f(gl::GetUniformLocation(self.ID, name.as_ptr()), x, y, z);
+    }
+    /// ------------------------------------------------------------------------
+    pub unsafe fn setMat4(&self, name: &CStr, mat: &Matrix4<f32>) {
+        gl::UniformMatrix4fv(gl::GetUniformLocation(self.ID, name.as_ptr()), 1, gl::FALSE, mat.as_ptr());
+    }
+    
     /// utility function for checking shader compilation/linking errors.
     /// ------------------------------------------------------------------------
     unsafe fn checkCompileErrors(&self, shader: u32, type_: &str) {
