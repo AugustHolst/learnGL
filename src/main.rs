@@ -111,6 +111,10 @@ pub fn main() {
            -0.5,  0.5,  0.5,  0.0, 0.0,
            -0.5,  0.5, -0.5,  0.0, 1.0
         ];
+        let mut smallVertices: Vec<f32> = vertices.iter().map(|v| 0.90 * v).collect();
+        println!("{}", &smallVertices[0]);
+        //let smallVArr = 
+        //for v in small
         let (mut VBO, mut VAO) = (0, 0);
         gl::GenVertexArrays(1, &mut VAO);
         gl::GenBuffers(1, &mut VBO);
@@ -119,8 +123,8 @@ pub fn main() {
 
         gl::BindBuffer(gl::ARRAY_BUFFER, VBO);
         gl::BufferData(gl::ARRAY_BUFFER,
-                       (vertices.len() * mem::size_of::<GLfloat>()) as GLsizeiptr,
-                       &vertices[0] as *const f32 as *const c_void,
+                       (smallVertices.len() * mem::size_of::<GLfloat>()) as GLsizeiptr,
+                       &smallVertices[0] as *const f32 as *const c_void,
                        gl::STATIC_DRAW);
         
         let stride = 5 * mem::size_of::<GLfloat>() as GLsizei;
@@ -162,7 +166,7 @@ pub fn main() {
         (ourShader, VBO, VAO, texture)
     };
     
-    let randomPositions = gen_random_positions(10);
+    let randomPositions = gen_random_positions(1000, -20.0, 30.0);
     let cubePositions: [Vector3<f32>; 10] = [
         vec3(0.0, 0.0, 0.0),
         vec3(2.0, 5.0, -15.0),
@@ -175,13 +179,22 @@ pub fn main() {
         vec3(1.5, 0.2, -1.5),
         vec3(-1.3, 1.0, -1.5)
     ];
+
+    let mut lastTime = glfw.get_time() as f32;
+    let mut nbFrames = 0;
     // render loop
     // -----------
     while !window.should_close() {
         // events
         // -----
         process_events(&mut window, &events);
-
+        
+        nbFrames+=1;
+        if glfw.get_time() as f32 - lastTime >= 1.0 {
+            println!("{}", 1000.0/nbFrames as f32);
+            nbFrames = 0;
+            lastTime += 1.0;
+        }
         // render
         // ------
         unsafe {
@@ -215,7 +228,7 @@ pub fn main() {
             ///render cubes
             gl::BindVertexArray(VAO);
             
-            for (i, position) in cubePositions.iter().enumerate() {
+            for (i, position) in randomPositions.iter().enumerate() {
                 let mut model: Matrix4<f32> = Matrix4::from_translation(*position);
                 let angle = 30.0 * i as f32;
                 model = model * Matrix4::from_axis_angle(vec3(1.0, 0.3, 0.5).normalize(), Deg(angle + 20.0 * glfw.get_time() as f32));
@@ -238,11 +251,11 @@ pub fn main() {
     }
 }
 
-fn gen_random_positions(num: i32) -> Vec<Vector3<f32>> {
+fn gen_random_positions(num: i32, lower: f32, upper: f32) -> Vec<Vector3<f32>> {
     let mut rng = thread_rng();
     let mut retval = Vec::new();
     for i in 0..num {
-        retval.push(vec3(rng.gen_range(-1.5, 3.0), rng.gen_range(-0.5, 5.0), rng.gen_range(0.0, 20.0)));
+        retval.push(vec3(rng.gen_range(lower, upper), rng.gen_range(lower, upper), rng.gen_range(lower, upper)));
     }
     return retval;
 }
