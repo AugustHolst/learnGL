@@ -1,4 +1,5 @@
 #![allow(non_upper_case_globals)]
+
 extern crate glfw;
 use self::glfw::{Context, Key, Action};
 
@@ -14,6 +15,10 @@ use std::ffi::{CString, CStr};
 
 mod shader;
 use shader::Shader;
+
+mod camera;
+use camera::Camera;
+use camera::Camera_Movement::*;
 
 extern crate image;
 use image::GenericImage;
@@ -50,8 +55,10 @@ pub fn main() {
         .expect("Failed to create GLFW window");
 
     window.make_current();
-    window.set_key_polling(true);
     window.set_framebuffer_size_polling(true);
+    window.set_cursor_pos_polling(true);
+    window.set_scroll_polling(true);
+    window.set_cursor_mode(glfw::CursorMode::Disabled); // confines the mouse to only act on the program.
 
     // gl: load all OpenGL function pointers
     // ---------------------------------------
@@ -179,21 +186,37 @@ pub fn main() {
         vec3(-1.3, 1.0, -1.5)
     ];
 
-    let mut lastTime = glfw.get_time() as f32;
+    // camera init
+    let mut camera = Camera {
+        Position: Point3::new(0.0, 0.0, 3.0),
+        ..Camera::default()
+    };
+
+    // mouse position init for camera movement
+    let mut firstMouse = true;
+    let mut lastX: f32 = SCR_WIDTH as f32 / 2.0;
+    let mut lastY: f32 = SCR_HEIGHT as f32 / 2.0;
+
+    // timing
+    let mut deltaTime: f32;
+    let mut lastFrame: f32 = 0.0;
     let mut nbFrames = 0;
+
     // render loop
     // -----------
     while !window.should_close() {
+        let currentFrame = glfw.get_time() as f32;
+        deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
+
         // events
         // -----
-        process_events(&mut window, &events);
+        process_events(&events, &mut firstMouse, &mut lastX, &mut lastY, &mut camera);
         
-        nbFrames+=1;
-        if glfw.get_time() as f32 - lastTime >= 1.0 {
-            println!("{}", 1000.0/nbFrames as f32);
-            nbFrames = 0;
-            lastTime += 1.0;
-        }
+        // input
+        // -----
+        processInput(&mut window, deltaTime, &mut camera);
+
         // render
         // ------
         unsafe {
@@ -207,33 +230,16 @@ pub fn main() {
             // activate shader
             ourShader.useProgram();
 
-            // create transformation matrices
-            //let model: Matrix4<f32> = Matrix4::from_axis_angle(vec3(0.5, 1.0, 0.0).normalize(), Rad(glfw.get_time() as f32)); # model
-            
-            let projection: Matrix4<f32> = perspective(Deg(45.0), SCR_WIDTH as f32 / SCR_HEIGHT as f32, 0.1, 100.0);        
-            
-            // get matrices uniform location
-            //let modelLoc = gl::GetUniformLocation(ourShader.ID, c_str!("model").as_ptr()); # model
-            //let viewLoc = gl::GetUniformLocation(ourShader.ID, c_str!("view").as_ptr());
-            //let projectionLoc = gl::GetUniformLocation(ourShader.ID, c_str!("projection").as_ptr());
-            
-            // set uniform matrices
-            //gl::UniformMatrix4fv(modelLoc, 1, gl::FALSE, model.as_ptr()); # model
-            //gl::UniformMatrix4fv(viewLoc, 1, gl::FALSE, view.as_ptr());
-            //gl::UniformMatrix4fv(projectionLoc, 1, gl::FALSE, projection.as_ptr());
-            
+            // create perspective matrix            
+            let projection: Matrix4<f32> = perspective(Deg(camera.Zoom), SCR_WIDTH as f32 / SCR_HEIGHT as f32, 0.1, 100.0);        
             ourShader.setMat4(c_str!("projection"), &projection);
 
-            // camera/view transformation
-            let radius: f32 = 10.0;
-            let camX = glfw.get_time().sin() as f32 * radius;
-            let camZ = glfw.get_time().cos() as f32 * radius;
-            let view: Matrix4<f32> = Matrix4::look_at(Point3::new(camX, 0.0, camZ), Point3::new(0.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0));
+            // camera/view transformation matrix
+            let view = camera.GetViewMatrix();
             ourShader.setMat4(c_str!("view"), &view);
 
-            ///render cubes
+            // render cubes
             gl::BindVertexArray(VAO);
-            
             for (i, position) in randomPositions.iter().enumerate() {
                 let mut model: Matrix4<f32> = Matrix4::from_translation(*position);
                 let angle = 30.0 * i as f32;
@@ -266,8 +272,12 @@ fn gen_random_positions(num: i32, lower: f32, upper: f32) -> Vec<Vector3<f32>> {
     return retval;
 }
 
-// NOTE: not the same version as in common.rs!
-fn process_events(window: &mut glfw::Window, events: &Receiver<(f64, glfw::WindowEvent)>) {
+// Event processing function
+pub fn process_events(events: &Receiver<(f64, glfw::WindowEvent)>,
+                  firstMouse: &mut bool,
+                  lastX: &mut f32,
+                  lastY: &mut f32,
+                  camera: &mut Camera) {
     for (_, event) in glfw::flush_messages(events) {
         match event {
             glfw::WindowEvent::FramebufferSize(width, height) => {
@@ -275,8 +285,46 @@ fn process_events(window: &mut glfw::Window, events: &Receiver<(f64, glfw::Windo
                 // height will be significantly larger than specified on retina displays.
                 unsafe { gl::Viewport(0, 0, width, height) }
             }
-            glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) => window.set_should_close(true),
+            glfw::WindowEvent::CursorPos(xpos, ypos) => {
+                let (xpos, ypos) = (xpos as f32, ypos as f32);
+                if *firstMouse {
+                    *lastX = xpos;
+                    *lastY = ypos;
+                    *firstMouse = false;
+                }
+
+                let xoffset = xpos - *lastX;
+                let yoffset = *lastY - ypos; // reversed since y-coordinates go from bottom to top
+
+                *lastX = xpos;
+                *lastY = ypos;
+
+                camera.ProcessMouseMovement(xoffset, yoffset, true);
+            }
+            glfw::WindowEvent::Scroll(_xoffset, yoffset) => {
+                camera.ProcessMouseScroll(yoffset as f32);
+            }
             _ => {}
         }
+    }
+}
+
+// Input processing function
+pub fn processInput(window: &mut glfw::Window, deltaTime: f32, camera: &mut Camera) {
+    if window.get_key(Key::Escape) == Action::Press {
+        window.set_should_close(true)
+    }
+
+    if window.get_key(Key::W) == Action::Press {
+        camera.ProcessKeyboard(FORWARD, deltaTime);
+    }
+    if window.get_key(Key::S) == Action::Press {
+        camera.ProcessKeyboard(BACKWARD, deltaTime);
+    }
+    if window.get_key(Key::A) == Action::Press {
+        camera.ProcessKeyboard(LEFT, deltaTime);
+    }
+    if window.get_key(Key::D) == Action::Press {
+        camera.ProcessKeyboard(RIGHT, deltaTime);
     }
 }
