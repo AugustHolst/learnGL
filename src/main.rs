@@ -18,7 +18,7 @@ use shader::Shader;
 extern crate image;
 use image::GenericImage;
 
-use cgmath::{Matrix4, Vector3, vec3, Deg, Rad, perspective};
+use cgmath::{Matrix4, Vector3, vec3, Point3, Deg, Rad, perspective};
 use cgmath::prelude::*;
 
 use rand::{thread_rng, Rng};
@@ -34,6 +34,7 @@ macro_rules! c_str {
         CStr::from_bytes_with_nul_unchecked(concat!($literal, "\0").as_bytes())
     }
 }
+
 #[allow(non_snake_case)]
 pub fn main() {
     // glfw: initialize and configure
@@ -112,9 +113,7 @@ pub fn main() {
            -0.5,  0.5, -0.5,  0.0, 1.0
         ];
         let mut smallVertices: Vec<f32> = vertices.iter().map(|v| 0.90 * v).collect();
-        println!("{}", &smallVertices[0]);
-        //let smallVArr = 
-        //for v in small
+
         let (mut VBO, mut VAO) = (0, 0);
         gl::GenVertexArrays(1, &mut VAO);
         gl::GenBuffers(1, &mut VBO);
@@ -209,21 +208,28 @@ pub fn main() {
             ourShader.useProgram();
 
             // create transformation matrices
-            let model: Matrix4<f32> = Matrix4::from_axis_angle(vec3(0.5, 1.0, 0.0).normalize(), Rad(glfw.get_time() as f32));
-            let view: Matrix4<f32> = Matrix4::from_translation(vec3(0.0, 0.0, -3.0));
+            //let model: Matrix4<f32> = Matrix4::from_axis_angle(vec3(0.5, 1.0, 0.0).normalize(), Rad(glfw.get_time() as f32)); # model
+            
             let projection: Matrix4<f32> = perspective(Deg(45.0), SCR_WIDTH as f32 / SCR_HEIGHT as f32, 0.1, 100.0);        
             
             // get matrices uniform location
-            let modelLoc = gl::GetUniformLocation(ourShader.ID, c_str!("model").as_ptr());
-            let viewLoc = gl::GetUniformLocation(ourShader.ID, c_str!("view").as_ptr());
+            //let modelLoc = gl::GetUniformLocation(ourShader.ID, c_str!("model").as_ptr()); # model
+            //let viewLoc = gl::GetUniformLocation(ourShader.ID, c_str!("view").as_ptr());
             //let projectionLoc = gl::GetUniformLocation(ourShader.ID, c_str!("projection").as_ptr());
             
             // set uniform matrices
-            gl::UniformMatrix4fv(modelLoc, 1, gl::FALSE, model.as_ptr());
-            gl::UniformMatrix4fv(viewLoc, 1, gl::FALSE, view.as_ptr());
+            //gl::UniformMatrix4fv(modelLoc, 1, gl::FALSE, model.as_ptr()); # model
+            //gl::UniformMatrix4fv(viewLoc, 1, gl::FALSE, view.as_ptr());
             //gl::UniformMatrix4fv(projectionLoc, 1, gl::FALSE, projection.as_ptr());
             
             ourShader.setMat4(c_str!("projection"), &projection);
+
+            // camera/view transformation
+            let radius: f32 = 10.0;
+            let camX = glfw.get_time().sin() as f32 * radius;
+            let camZ = glfw.get_time().cos() as f32 * radius;
+            let view: Matrix4<f32> = Matrix4::look_at(Point3::new(camX, 0.0, camZ), Point3::new(0.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0));
+            ourShader.setMat4(c_str!("view"), &view);
 
             ///render cubes
             gl::BindVertexArray(VAO);
