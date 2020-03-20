@@ -9,6 +9,9 @@ edition = "2018"
 [[bin]]
 name = "main"
 path = "src/main.rs"
+[[bin]]
+name = "light_main"
+path = "src/light_main.rs"
 
 [dependencies]
 cgmath = "0.16.1"

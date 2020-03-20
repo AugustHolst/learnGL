@@ -1,4 +1,5 @@
 #![allow(non_upper_case_globals)]
+#![allow(non_snake_case)]
 
 extern crate glfw;
 use self::glfw::{Context, Key, Action};
@@ -20,6 +21,8 @@ mod camera;
 use camera::Camera;
 use camera::Camera_Movement::*;
 
+mod macros;
+
 extern crate image;
 use image::GenericImage;
 
@@ -32,15 +35,8 @@ use rand::{thread_rng, Rng};
 const SCR_WIDTH: u32 = 800;
 const SCR_HEIGHT: u32 = 600;
 
-/// Macro to get c strings from literals without runtime overhead
-/// Literal must not contain any interior nul bytes!
-macro_rules! c_str {
-    ($literal:expr) => {
-        CStr::from_bytes_with_nul_unchecked(concat!($literal, "\0").as_bytes())
-    }
-}
 
-#[allow(non_snake_case)]
+
 pub fn main() {
     // glfw: initialize and configure
     // ------------------------------
@@ -215,7 +211,7 @@ pub fn main() {
         
         // input
         // -----
-        processInput(&mut window, deltaTime, &mut camera);
+        process_input(&mut window, deltaTime, &mut camera);
 
         // render
         // ------
@@ -310,7 +306,7 @@ pub fn process_events(events: &Receiver<(f64, glfw::WindowEvent)>,
 }
 
 // Input processing function
-pub fn processInput(window: &mut glfw::Window, deltaTime: f32, camera: &mut Camera) {
+pub fn process_input(window: &mut glfw::Window, deltaTime: f32, camera: &mut Camera) {
     if window.get_key(Key::Escape) == Action::Press {
         window.set_should_close(true)
     }
