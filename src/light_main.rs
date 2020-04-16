@@ -65,21 +65,20 @@ pub fn main() {
     // timing
     let mut deltaTime: f32;
     let mut lastFrame: f32 = 0.0;
-    let mut nbFrames = 0;
 
     let lightPos = vec3(1.2, 1.0, 2.0);
     
-    let (lampShader, litShader, VBO, cubeVAO, lightVAO) = unsafe {
+    let (lampShader, lightShader, VBO, cubeVAO, lightVAO) = unsafe {
         
         gl::Enable(gl::DEPTH_TEST);
         
         let lampShader = Shader::new(
             "src/shaders/light.vert",
-            "src/shaders/light.frag"
+            "src/shaders/lamp.frag"
         );
-        let litShader = Shader::new(
+        let lightShader = Shader::new(
             "src/shaders/light.vert",
-            "src/shaders/lit.frag"
+            "src/shaders/light.frag"
         );
 
         // set up vertex data (and buffer(s)) and configure vertex attributes
@@ -159,7 +158,7 @@ pub fn main() {
         gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, stride, ptr::null());
         gl::EnableVertexAttribArray(0);
         
-        (lampShader, litShader, VBO, cubeVAO, lightVAO)
+        (lampShader, lightShader, VBO, cubeVAO, lightVAO)
     };
 
     while !window.should_close() {
@@ -175,20 +174,23 @@ pub fn main() {
             gl::ClearColor(0.2, 0.3, 0.3, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
 
-            litShader.useProgram();
-            litShader.setVec3(c_str!("objectColor"), 1.0, 0.5, 0.31);
-            litShader.setVec3(c_str!("lightColor"), 1.0, 1.0, 1.0);
-            litShader.setVector3(c_str!("lightPos"), &lightPos);
+            lightShader.useProgram();
+            lightShader.setVec3(c_str!("objectColor"), 1.0, 0.5, 0.31);
+            lightShader.setVec3(c_str!("lightColor"), 1.0, 1.0, 1.0);
+            lightShader.setVector3(c_str!("lightPos"), &lightPos);
+            lightShader.setVector3(c_str!("viewPos"), &camera.Position.to_vec());
+
             // view/projection transformations
             let projection: Matrix4<f32> = perspective(Deg(camera.Zoom), SCR_WIDTH as f32 / SCR_HEIGHT as f32, 0.1, 100.0);
             let view = camera.GetViewMatrix();
-            litShader.setMat4(c_str!("projection"), &projection);
-            litShader.setMat4(c_str!("view"), &view);
+            lightShader.setMat4(c_str!("projection"), &projection);
+            lightShader.setMat4(c_str!("view"), &view);
+            
 
             // world transformation
             let mut model = Matrix4::<f32>::identity();
             //model = model * Matrix4::from_axis_angle(vec3(1.0, 0.3, 0.5).normalize(), Deg(20.0 * glfw.get_time() as f32));
-            litShader.setMat4(c_str!("model"), &model);
+            lightShader.setMat4(c_str!("model"), &model);
 
             // render the cube
             gl::BindVertexArray(cubeVAO);
