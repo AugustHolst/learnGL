@@ -1,3 +1,4 @@
 /.ionide
 /target
+/engine/target
 **/*.rs.bk
