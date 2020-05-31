@@ -1,7 +1,6 @@
 use crate::window::Window;
-
-enum GameState {
-    Playing, Paused
+pub struct PH {
+    pub x: i32
 }
 
 pub struct EngineConfig {
@@ -10,8 +9,7 @@ pub struct EngineConfig {
 }
 
 pub struct Engine {
-    window: Window,
-    game_state: Option<GameState>
+    window: Window
 }
 
 impl Engine {
@@ -19,7 +17,18 @@ impl Engine {
         let window = Window::new(config.window_width, config.window_height);
         Engine { 
             window,
-            game_state: None
         }
+    }
+    
+    pub fn start(&mut self, scene: &mut PH) -> () {
+        //scene.init();
+
+        self.run_loop(scene);
+
+        self.window.close();
+    }
+    
+    fn run_loop(&mut self, scene: &mut PH) {
+        
     }
 }
