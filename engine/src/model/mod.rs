@@ -1,7 +1,10 @@
+pub mod model;
+pub use model::Model;
+pub use model::Scene;
 
-pub mod scene;
 pub mod mesh;
-use mesh::Vertex;
-use mesh::Texture;
+pub use mesh::Vertex;
+pub use mesh::Texture;
+
 pub mod shader;
-use shader::Shader;
+pub use shader::Shader;

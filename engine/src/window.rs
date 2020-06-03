@@ -45,6 +45,8 @@ impl Window {
                         gl::Viewport(0, 0, width, height);
                     }
                 }
+                // Should move this into a function process_input. 
+                // Or maybe split this function into checking both type of events.
                 glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) => self.was_close_requested = true,
                 _ => {}
             }
@@ -55,14 +57,22 @@ impl Window {
         self.glfw_window.set_should_close(true)
     }
 
-    pub fn update(&mut self) {
+    pub fn get_time(&mut self) -> f32 {
+        self.glfw.get_time() as f32
+    }
+
+    pub fn should_close(&self) -> bool {
+        self.glfw_window.should_close()
+    }
+
+    pub fn update(&mut self) -> () {
         self.glfw_window.swap_buffers();
         self.glfw.poll_events();
     }
 
     pub fn clear(&self) {
         unsafe {
-            gl::Clear(gl::COLOR_BUFFER_BIT);
+            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
             gl::ClearColor(0.2, 0.3, 0.3, 1.0);
         }
     }
